@@ -17,7 +17,7 @@ except ImportError as e:
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 log = logging.getLogger(__name__)
 
-def pdf_to_images(pdf_path: str, dpi: int = 200) -> List[Path]:
+def pdf_to_images(pdf_path: str, dpi: int =150) -> List[Path]:
     images = convert_from_path(pdf_path, dpi=dpi, fmt='jpeg')
     temp_dir = Path("temp_images")
     temp_dir.mkdir(exist_ok=True)
@@ -41,47 +41,22 @@ def extract_json_from_text(text: str) -> Dict[str, Any]:
     raise ValueError("No JSON object found in response")
 
 def extract_from_image(image_path: Path, model: str = "qwen2.5vl:7b") -> Dict[str, Any]:
-    prompt = """Extract the complete attendance data from this monthly attendance sheet image.
-
-The table columns are (in order):
-SN, EMP Code, Name of the Employee, DOJ, DOL, Designation, Sub Location, followed by day columns (1,2,3,... up to the last day of the month), then Present Days, Week off, Holiday, Absent Days, Total Billable Days.
-
-Return ONLY valid JSON in the following structure. Use null for missing values.
-
+    prompt = """Extract monthly attendance from this image.
+Return ONLY valid JSON in this format:
 {
-  "month_year": "Month Year (e.g., January 2026) extracted from the sheet",
+  "month_year": "Month Year (e.g., January 2026)",
   "employees": [
     {
-      "emp_code": "string",
-      "name": "string",
-      "doj": "YYYY-MM-DD or null",
-      "dol": "YYYY-MM-DD or null",
-      "designation": "string",
-      "sub_location": "string",
+      "name": "Employee name",
       "attendance": {
-        "1": "status or time (e.g., P, A, L, 09:00)",
+        "1": "P/A/L/WO/H",
         "2": "...",
         ...
-        "31": "..."
-      },
-      "present_days": integer,
-      "week_off": integer,
-      "holiday": integer,
-      "absent_days": integer,
-      "total_billable_days": integer
+      }
     }
   ]
 }
-
-For the attendance object, include only days that exist in the sheet (e.g., up to 31 for Jan, 28 for Feb). The key is the day number as a string. The value can be:
-- "P" for present
-- "A" for absent
-- "L" for late
-- "H" for holiday
-- "WO" for week off
-- Or a time string like "09:00" if time is recorded.
-
-If a cell is empty, use null.
+Use codes: P=present, A=absent, L=late, WO=week off, H=holiday.
 Do not add any extra text outside the JSON.
 """
     try:
